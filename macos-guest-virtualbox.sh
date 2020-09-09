@@ -86,7 +86,7 @@ function pad_to_33_chars() {
 
 # custom settings prompt
 echo -e "\nvm_name=\"${vm_name}\""
-pad_to_33_chars "macOS_release_name=\"${macOS_release_name}\"" "# install \"HighSierra\" \"Mojave\" \"Catalina\""
+pad_to_33_chars "macOS_release_name=\"${filesize}_${macOS_release_name}\"" "# install \"HighSierra\" \"Mojave\" \"Catalina\""
 pad_to_33_chars "storage_size=${storage_size}"                 "# VM disk image size in MB. minimum 22000"
 pad_to_33_chars "storage_format=\"${storage_format}\""         "# VM disk image file format, \"vdi\" or \"vmdk\""
 pad_to_33_chars "cpu_count=${cpu_count}"                       "# VM CPU cores, minimum 2"
@@ -346,7 +346,7 @@ else
     echo "Can't parse macOS_release_name. Exiting."
     exit
 fi
-print_dimly "${macOS_release_name} selected to be downloaded and installed"
+print_dimly "${filesize}_${macOS_release_name} selected to be downloaded and installed"
 }
 # Done with dependencies
 
@@ -406,16 +406,16 @@ fi
 function prepare_macos_installation_files() {
 print_dimly "stage: prepare_macos_installation_files"
 # Find the correct download URL in the Apple catalog
-echo -e "\nDownloading Apple macOS ${macOS_release_name} software update catalog"
+echo -e "\nDownloading Apple macOS ${filesize}_${macOS_release_name} software update catalog"
 wget "${sucatalog}" \
      ${wgetargs} \
-     --output-document="${macOS_release_name}_sucatalog"
+     --output-document="${filesize}_${macOS_release_name}_sucatalog"
 
 # if file was not downloaded correctly
-if [[ ! -s "${macOS_release_name}_sucatalog" ]]; then
-    wget --debug --timeout=60 -O /dev/null -o "${macOS_release_name}_wget.log" "${sucatalog}"
+if [[ ! -s "${filesize}_${macOS_release_name}_sucatalog" ]]; then
+    wget --debug --timeout=60 -O /dev/null -o "${filesize}_${macOS_release_name}_wget.log" "${sucatalog}"
     echo -e "\nCouldn't download the Apple software update catalog."
-    if [[ "$(expr match "$(cat "${macOS_release_name}_wget.log")" '.*ERROR[[:print:]]*is not trusted')" -gt "0" ]]; then
+    if [[ "$(expr match "$(cat "${filesize}_${macOS_release_name}_wget.log")" '.*ERROR[[:print:]]*is not trusted')" -gt "0" ]]; then
         echo -e "\nMake sure certificates from a certificate authority are installed."
         echo "Certificates are often installed through the package manager with"
         echo "a package named  ${highlight_color}ca-certificates${default_color}"
@@ -424,11 +424,11 @@ if [[ ! -s "${macOS_release_name}_sucatalog" ]]; then
     exit
 fi
 
-echo "Trying to find macOS ${macOS_release_name} InstallAssistant download URL"
-tac "${macOS_release_name}_sucatalog" | csplit - '/InstallAssistantAuto.smd/+1' '{*}' -f "${macOS_release_name}_sucatalog_" -s
-for catalog in "${macOS_release_name}_sucatalog_"* "error"; do
+echo "Trying to find macOS ${filesize}_${macOS_release_name} InstallAssistant download URL"
+tac "${filesize}_${macOS_release_name}_sucatalog" | csplit - '/InstallAssistantAuto.smd/+1' '{*}' -f "${filesize}_${macOS_release_name}_sucatalog_" -s
+for catalog in "${filesize}_${macOS_release_name}_sucatalog_"* "error"; do
     if [[ "${catalog}" == error ]]; then
-        rm "${macOS_release_name}_sucatalog"*
+        rm "${filesize}_${macOS_release_name}_sucatalog"*
         echo "Couldn't find the requested download URL in the Apple catalog. Exiting."
        exit
     fi
@@ -443,7 +443,7 @@ for catalog in "${macOS_release_name}_sucatalog_"* "error"; do
     found_version="$(head -n 6 "${catalog}_InstallAssistantAuto.smd" | tail -n 1)"
     if [[ "${found_version}" == *${CFBundleShortVersionString}* ]]; then
         echo -e "Found download URL: ${urlbase}\n"
-        rm "${macOS_release_name}_sucatalog"*
+        rm "${filesize}_${macOS_release_name}_sucatalog"*
         break
     fi
 done
@@ -456,13 +456,13 @@ for filename in "BaseSystem.chunklist" \
                 "InstallESDDmg.pkg"; \
     do wget "${urlbase}${filename}${filesize}" \
             ${wgetargs} \
-            --output-document "${filesize}_${macOS_release_name}_${filename}"
+            --output-document "${filesize}_${filesize}_${macOS_release_name}_${filename}"
 done
 
 echo -e "\nSplitting the several-GB InstallESDDmg.pkg into 1GB parts because"
 echo "VirtualBox hasn't implemented UDF/HFS VISO support yet and macOS"
 echo "doesn't support ISO 9660 Level 3 with files larger than 2GB."
-split --verbose -a 2 -d -b 1000000000 "${filesize}_${macOS_release_name}_InstallESDDmg.pkg" "${filesize}_${macOS_release_name}_InstallESD.part"
+split --verbose -a 2 -d -b 1000000000 "${filesize}_${filesize}_${macOS_release_name}_InstallESDDmg.pkg" "${filesize}_${filesize}_${macOS_release_name}_InstallESD.part"
 
 if [[ ! -s "ApfsDriverLoader.efi" ]]; then
     echo -e "\nDownloading open-source APFS EFI drivers used for VirtualBox 6.0 and 5.2"
@@ -593,7 +593,7 @@ endfor' >> "${vm_name}_startup.nsh"
 
 echo -e "\nCreating VirtualBox 6 virtual ISO containing the"
 echo -e "installation files from swcdn.apple.com\n"
-create_viso_header "${macOS_release_name}_installation_files.viso" "${macOS_release_name:0:5}-files"
+create_viso_header "${filesize}_${macOS_release_name}_installation_files.viso" "${macOS_release_name:0:5}-files"
 
 # add files to viso
 
@@ -603,33 +603,33 @@ for filename in "BaseSystem.chunklist" \
                 "AppleDiagnostics.dmg" \
                 "AppleDiagnostics.chunklist" \
                 "BaseSystem.dmg" ; do
-    if [[ -s "${macOS_release_name}_${filename}" ]]; then
-        echo "/${filename}=\"${macOS_release_name}_${filename}\"" >> "${macOS_release_name}_installation_files.viso"
+    if [[ -s "${filesize}_${macOS_release_name}_${filename}" ]]; then
+        echo "/${filename}=\"${filesize}_${macOS_release_name}_${filename}\"" >> "${filesize}_${macOS_release_name}_installation_files.viso"
     fi
 done
 
-if [[ -s "${macOS_release_name}_InstallESD.part00" ]]; then
-    for part in "${macOS_release_name}_InstallESD.part"*; do
-        echo "/InstallESD${part##*InstallESD}=\"${part}\"" >> "${macOS_release_name}_installation_files.viso"
+if [[ -s "${filesize}_${macOS_release_name}_InstallESD.part00" ]]; then
+    for part in "${filesize}_${macOS_release_name}_InstallESD.part"*; do
+        echo "/InstallESD${part##*InstallESD}=\"${part}\"" >> "${filesize}_${macOS_release_name}_installation_files.viso"
     done
 fi
 
 # NVRAM binary files
 for filename in "MLB.bin" "ROM.bin" "csr-active-config.bin" "system-id.bin"; do
     if [[ -s "${vm_name}_${filename}" ]]; then
-        echo "/ESP/EFI/NVRAM/${filename}=\"${vm_name}_${filename}\"" >> "${macOS_release_name}_installation_files.viso"
+        echo "/ESP/EFI/NVRAM/${filename}=\"${vm_name}_${filename}\"" >> "${filesize}_${macOS_release_name}_installation_files.viso"
     fi
 done
 
 # EFI drivers for VirtualBox 6.0 and 5.2
 for filename in "ApfsDriverLoader.efi" "AppleImageLoader.efi" "AppleUiSupport.efi"; do
     if [[ -s "${filename}" ]]; then
-        echo "/ESP/EFI/OC/Drivers/${filename}=\"${filename}\"" >> "${macOS_release_name}_installation_files.viso"
+        echo "/ESP/EFI/OC/Drivers/${filename}=\"${filename}\"" >> "${filesize}_${macOS_release_name}_installation_files.viso"
     fi
 done
 
 # EFI startup script
-echo "/ESP/startup.nsh=\"${vm_name}_startup.nsh\"" >> "${macOS_release_name}_installation_files.viso"
+echo "/ESP/startup.nsh=\"${vm_name}_startup.nsh\"" >> "${filesize}_${macOS_release_name}_installation_files.viso"
 
 }
 
@@ -674,19 +674,19 @@ VBoxManage setextradata "${vm_name}" \
 # Create the macOS base system virtual disk image
 function populate_basesystem_virtual_disk() {
 print_dimly "stage: populate_basesystem_virtual_disk"
-[[ -s "${macOS_release_name}_BaseSystem.${storage_format}" ]] && echo "${macOS_release_name}_BaseSystem.${storage_format} bootstrap virtual disk image exists." && return
-[[ ! -s "${macOS_release_name}_BaseSystem.dmg" ]] && echo -e "\nCould not find ${macOS_release_name}_BaseSystem.dmg; exiting." && exit
+[[ -s "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" ]] && echo "${filesize}_${macOS_release_name}_BaseSystem.${storage_format} bootstrap virtual disk image exists." && return
+[[ ! -s "${filesize}_${macOS_release_name}_BaseSystem.dmg" ]] && echo -e "\nCould not find ${filesize}_${macOS_release_name}_BaseSystem.dmg; exiting." && exit
 echo "Converting BaseSystem.dmg to BaseSystem.img"
-dmg2img "${macOS_release_name}_BaseSystem.dmg" "${macOS_release_name}_BaseSystem.img"
+dmg2img "${filesize}_${macOS_release_name}_BaseSystem.dmg" "${filesize}_${macOS_release_name}_BaseSystem.img"
 VBoxManage storagectl "${vm_name}" --remove --name SATA >/dev/null 2>&1
-VBoxManage closemedium "${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null 2>&1
+VBoxManage closemedium "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null 2>&1
 local success=''
-VBoxManage convertfromraw --format "${storage_format}" "${macOS_release_name}_BaseSystem.img" "${macOS_release_name}_BaseSystem.${storage_format}" && local success="True"
+VBoxManage convertfromraw --format "${storage_format}" "${filesize}_${macOS_release_name}_BaseSystem.img" "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" && local success="True"
 if [[ "${success}" = "True" ]]; then
-    rm "${macOS_release_name}_BaseSystem.img" 2>/dev/null
+    rm "${filesize}_${macOS_release_name}_BaseSystem.img" 2>/dev/null
     return
 fi
-echo "Failed to create \"${macOS_release_name}_BaseSystem.${storage_format}\"."
+echo "Failed to create \"${filesize}_${macOS_release_name}_BaseSystem.${storage_format}\"."
 if [[ "$(cat /proc/sys/kernel/osrelease 2>/dev/null)" =~ [Mm]icrosoft ]]; then
     echo -e "\nSome versions of WSL require the script to execute on a Windows filesystem path,"
     echo -e "for example   ${highlight_color}/mnt/c/Users/Public/Documents${default_color}"
@@ -700,34 +700,34 @@ exit
 # Create the installation media virtual disk image
 function create_bootable_installer_virtual_disk() {
 print_dimly "stage: create_bootable_installer_virtual_disk"
-if [[ -w "${macOS_release_name}_bootable_installer.${storage_format}" ]]; then
-    echo "\"${macOS_release_name}_bootable_installer.${storage_format}\" virtual disk image exists."
-    echo -ne "${warning_color}Delete \"${macOS_release_name}_bootable_installer.${storage_format}\"?${default_color}"
+if [[ -w "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" ]]; then
+    echo "\"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\" virtual disk image exists."
+    echo -ne "${warning_color}Delete \"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\"?${default_color}"
     prompt_delete_y_n
     if [[ "${delete}" == "y" ]]; then
         if [[ "$( VBoxManage list runningvms )" =~ \""${vm_name}"\" ]]
         then
-            echo "\"${macOS_release_name}_bootable_installer.${storage_format}\" may be deleted"
+            echo "\"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\" may be deleted"
             echo "only when the virtual machine is powered off."
             echo "Exiting."
             exit
         else
             VBoxManage storagectl "${vm_name}" --remove --name SATA >/dev/null 2>&1
-            VBoxManage closemedium "${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
-            rm "${macOS_release_name}_bootable_installer.${storage_format}"
+            VBoxManage closemedium "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
+            rm "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}"
         fi
     else
         echo "Exiting."
         exit
     fi
 fi
-if [[ ! -e "${macOS_release_name}_bootable_installer.${storage_format}" ]]; then
-    echo "Creating ${macOS_release_name} installation media virtual disk image."
+if [[ ! -e "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" ]]; then
+    echo "Creating ${filesize}_${macOS_release_name} installation media virtual disk image."
     VBoxManage storagectl "${vm_name}" --remove --name SATA >/dev/null 2>&1
-    VBoxManage closemedium "${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
+    VBoxManage closemedium "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
     VBoxManage createmedium --size=12000 \
                             --format "${storage_format}" \
-                            --filename "${macOS_release_name}_bootable_installer.${storage_format}" \
+                            --filename "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" \
                             --variant standard 2>/dev/tty
 fi
 }
@@ -743,16 +743,16 @@ if [[ -n $(
           ) ]]; then echo "Could not configure virtual machine storage controller. Exiting."; exit; fi
 if [[ -n $(
            2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 1 --hotpluggable on \
-               --type hdd --nonrotational on --medium "${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null
-          ) ]]; then echo "Could not attach \"${macOS_release_name}_bootable_installer.${storage_format}\". Exiting."; exit; fi
+               --type hdd --nonrotational on --medium "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null
+          ) ]]; then echo "Could not attach \"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\". Exiting."; exit; fi
 if [[ -n $(
            2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 2 \
-               --type dvddrive --medium "${macOS_release_name}_installation_files.viso" >/dev/null
-          ) ]]; then echo "Could not attach \"${macOS_release_name}_installation_files.viso\". Exiting."; exit; fi
+               --type dvddrive --medium "${filesize}_${macOS_release_name}_installation_files.viso" >/dev/null
+          ) ]]; then echo "Could not attach \"${filesize}_${macOS_release_name}_installation_files.viso\". Exiting."; exit; fi
 if [[ -n $(
            2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 3 --hotpluggable on \
-               --type hdd --nonrotational on --medium "${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null
-          ) ]]; then echo "Could not attach \"${macOS_release_name}_BaseSystem.${storage_format}\". Exiting."; exit; fi
+               --type hdd --nonrotational on --medium "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null
+          ) ]]; then echo "Could not attach \"${filesize}_${macOS_release_name}_BaseSystem.${storage_format}\". Exiting."; exit; fi
 
 echo -e "\nCreating VirtualBox 6 virtual ISO containing macOS Terminal script"
 echo -e "for partitioning and populating the bootable installer virtual disk.\n"
@@ -815,15 +815,15 @@ for (( i=10; i>0; i-- )); do echo -ne "   \r${i} "; sleep 0.5; done; echo -e "\r
 # and release basesystem VDI from VirtualBox configuration
 if [[ -n $(
     2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 3 --medium none >/dev/null
-    2>&1 VBoxManage closemedium "${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null
+    2>&1 VBoxManage closemedium "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null
     ) ]]; then
-    echo "Could not detach ${macOS_release_name}_BaseSystem.${storage_format}"
+    echo "Could not detach ${filesize}_${macOS_release_name}_BaseSystem.${storage_format}"
     echo "It's possible the VirtualBox GUI took longer than five seconds to shut off."
     echo "The macOS installation may be resumed with the following command:"
     echo "  ${highlight_color}${0} populate_macos_target_disk${default_color}"
     exit
 fi
-echo "${macOS_release_name}_BaseSystem.${storage_format} successfully detached from"
+echo "${filesize}_${macOS_release_name}_BaseSystem.${storage_format} successfully detached from"
 echo "the virtual machine and released from VirtualBox Manager."
 }
 
@@ -850,7 +850,7 @@ if [[ -w "${vm_name}.${storage_format}" ]]; then
         exit
     fi
 fi
-if [[ "${macOS_release_name}" = "Catalina" && "${storage_size}" -lt 25000 ]]; then
+if [[ "${filesize}_${macOS_release_name}" = "Catalina" && "${storage_size}" -lt 25000 ]]; then
     echo "Attempting to install macOS Catalina on a disk smaller than 25000MB will fail."
     echo "Please assign a larger virtual disk image size. Exiting."
     exit
@@ -886,12 +886,12 @@ if [[ -n $(
           ) ]]; then echo "Could not attach \"${vm_name}.${storage_format}\". Exiting."; exit; fi
 if [[ -n $(
            2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 1 --hotpluggable on \
-               --type hdd --nonrotational on --medium "${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null
-          ) ]]; then echo "Could not attach \"${macOS_release_name}_bootable_installer.${storage_format}\". Exiting."; exit; fi
+               --type hdd --nonrotational on --medium "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null
+          ) ]]; then echo "Could not attach \"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\". Exiting."; exit; fi
 if [[ -n $(
            2>&1 VBoxManage storageattach "${vm_name}" --storagectl SATA --port 2 \
-               --type dvddrive --medium "${macOS_release_name}_installation_files.viso" >/dev/null
-          ) ]]; then echo "Could not attach \"${macOS_release_name}_installation_files.viso\". Exiting."; exit; fi
+               --type dvddrive --medium "${filesize}_${macOS_release_name}_installation_files.viso" >/dev/null
+          ) ]]; then echo "Could not attach \"${filesize}_${macOS_release_name}_installation_files.viso\". Exiting."; exit; fi
 
 echo -e "\nCreating VirtualBox 6 virtual ISO containing macOS Terminal scripts"
 echo -e "for partitioning and populating the target virtual disk.\n"
@@ -946,7 +946,7 @@ send_enter
 if [[ ! ( "${vbox_version:0:1}" -gt 6
         || ( "${vbox_version:0:1}" = 6 && "${vbox_version:2:1}" -ge 1 ) ) ]]; then
     echo -e "\n${highlight_color}When the installer finishes preparing and reboots the VM, press enter${default_color} so the script
-powers off the virtual machine and detaches the device \"${macOS_release_name}_bootable_installer.${storage_format}\" to avoid
+powers off the virtual machine and detaches the device \"${filesize}_${macOS_release_name}_bootable_installer.${storage_format}\" to avoid
 booting into the initial installer environment again."
     clear_input_buffer_then_read
     VBoxManage controlvm "${vm_name}" poweroff >/dev/null 2>&1
@@ -979,13 +979,13 @@ else
         VBoxManage storageattach "${vm_name}" --storagectl SATA --port 0 \
                    --type hdd --nonrotational on --medium "${vm_name}.${storage_format}"
     fi
-    VBoxManage closemedium "${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
-    VBoxManage closemedium "${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null 2>&1
+    VBoxManage closemedium "${filesize}_${macOS_release_name}_bootable_installer.${storage_format}" >/dev/null 2>&1
+    VBoxManage closemedium "${filesize}_${macOS_release_name}_BaseSystem.${storage_format}" >/dev/null 2>&1
     echo -e "The following temporary files are safe to delete:\n"
-    temporary_files=("${macOS_release_name}_Apple"*
-                     "${macOS_release_name}_BaseSystem"*
-                     "${macOS_release_name}_Install"*
-                     "${macOS_release_name}_bootable_installer"*
+    temporary_files=("${filesize}_${macOS_release_name}_Apple"*
+                     "${filesize}_${macOS_release_name}_BaseSystem"*
+                     "${filesize}_${macOS_release_name}_Install"*
+                     "${filesize}_${macOS_release_name}_bootable_installer"*
                      "${vm_name}_"*".png"
                      "${vm_name}_"*".bin"
                      "${vm_name}_"*".txt"
@@ -1269,13 +1269,13 @@ for wrapper in 1; do
     echo "################################################################################"
     echo "md5 hashes"
     if [[ -n "$(md5sum --version 2>/dev/null)" ]]; then
-        md5sum "${macOS_release_name}_BaseSystem"* 2>/dev/null
-        md5sum "${macOS_release_name}_Install"* 2>/dev/null
-        md5sum "${macOS_release_name}_Apple"* 2>/dev/null
+        md5sum "${filesize}_${macOS_release_name}_BaseSystem"* 2>/dev/null
+        md5sum "${filesize}_${macOS_release_name}_Install"* 2>/dev/null
+        md5sum "${filesize}_${macOS_release_name}_Apple"* 2>/dev/null
     else
-        md5 "${macOS_release_name}_BaseSystem"* 2>/dev/null
-        md5 "${macOS_release_name}_Install"* 2>/dev/null
-        md5 "${macOS_release_name}_Apple"* 2>/dev/null
+        md5 "${filesize}_${macOS_release_name}_BaseSystem"* 2>/dev/null
+        md5 "${filesize}_${macOS_release_name}_Install"* 2>/dev/null
+        md5 "${filesize}_${macOS_release_name}_Apple"* 2>/dev/null
     fi
     echo "################################################################################"
 done >> "${vm_name}_troubleshoot.txt"
