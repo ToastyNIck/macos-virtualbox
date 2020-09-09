@@ -454,15 +454,15 @@ for filename in "BaseSystem.chunklist" \
                 "AppleDiagnostics.chunklist" \
                 "BaseSystem.dmg" \
                 "InstallESDDmg.pkg"; \
-    do wget "${urlbase}${filename}" \
+    do wget "${urlbase}${filename}${filesize}" \
             ${wgetargs} \
-            --output-document "${macOS_release_name}_${filename}"
+            --output-document "${filesize}_${macOS_release_name}_${filename}"
 done
 
 echo -e "\nSplitting the several-GB InstallESDDmg.pkg into 1GB parts because"
 echo "VirtualBox hasn't implemented UDF/HFS VISO support yet and macOS"
 echo "doesn't support ISO 9660 Level 3 with files larger than 2GB."
-split --verbose -a 2 -d -b 1000000000 "${macOS_release_name}_InstallESDDmg.pkg" "${macOS_release_name}_InstallESD.part"
+split --verbose -a 2 -d -b 1000000000 "${filesize}_${macOS_release_name}_InstallESDDmg.pkg" "${filesize}_${macOS_release_name}_InstallESD.part"
 
 if [[ ! -s "ApfsDriverLoader.efi" ]]; then
     echo -e "\nDownloading open-source APFS EFI drivers used for VirtualBox 6.0 and 5.2"
